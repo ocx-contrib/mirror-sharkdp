@@ -1,0 +1,106 @@
+# Repo-wide policy for the sharkdp-published tools mirrored here.
+#
+# NOT a spec: it has no name/target/source and is never loaded on its own.
+# Everything a package owns — name, target, source, assets, asset_type,
+# bin_scan, metadata, catalog, tests, versions, announce, annotations — stays
+# in that package's own mirror.yml.
+#
+# ⚠️ `extends:` is a SHALLOW merge of top-level keys. A spec that sets a key
+# below replaces that block OUTRIGHT — there is no per-key merge. `platforms:`
+# is where this bites: it carries BOTH the runner matrix and the container
+# legs, so a child that restates it to tweak one runner silently drops every
+# `containers:` entry. Nothing reds — the legs simply stop existing, and every
+# os.features claim in that spec goes back to being merely asserted. Restate
+# `platforms:` IN FULL or not at all.
+
+skip_prereleases: true
+cascade: true
+
+# `none` is the pre-existing choice of the flat mirror this repo grew out of,
+# kept deliberately: `ocx.sh/hyperfine` already published every in-range version
+# at the bare tag, and switching to `date` would re-tag all of them for no gain.
+build_timestamp: none
+
+verify:
+  github_asset_digest: true
+
+concurrency:
+  # Assets are ~1–2 MB archives around a single static binary.
+  max_downloads: 8
+  max_bundles: 4
+  max_pushes: 2
+  rate_limit_ms: 100
+  max_retries: 3
+  compression_threads: 0
+
+# `off`, and it cannot be otherwise for the packages here. sharkdp's release
+# tarballs put the executable at the archive ROOT (beside README/LICENSE/man),
+# so after `strip_components: 1` the bundle's only PATH entry is a bare
+# ${installPath}. The scan only looks BELOW an interface PATH entry of the form
+# ${installPath}/<dir>; with none, `auto` would publish `binaries: []` and the
+# spec is rejected at load with exit 65 ("bin_scan is enabled but … declares no
+# interface-visible ${installPath}/<dir> PATH entry"). `verify` is not exempt —
+# it inspects no file and passes green whatever the archive holds. `off` with a
+# hand-listed `binaries` in metadata.json is the blessed shape here; a future
+# package shipping a real bin/ dir should override this to `verify`.
+bin_scan: off
+
+# ─── Platform matrix ────────────────────────────────────────────────────────
+#
+# ⚠️ NOT shared policy in the way the rest of this file is. sharkdp's Rust
+# release matrix is ASYMMETRIC PER ARCH — amd64 gets a musl build, arm64 does
+# not — so this block encodes hyperfine's measured libc facts, recorded in full
+# above hyperfine/mirror.yml's `assets:`. A second package here (bat, fd) ships
+# the same cargo-dist shape and will very likely match; if its measurement
+# differs it must restate this WHOLE block in its own spec — see the
+# shallow-merge warning above.
+#
+# `os.features` states what an artifact REQUIRES OF THE HOST, not how it was
+# built. The two Linux keys therefore differ:
+#
+#   linux/amd64  — the musl asset is static-pie, no PT_INTERP, no DT_NEEDED.
+#                  It requires nothing of the host → BARE key. A bare key
+#                  claims universality, so it must prove it: ubuntu (glibc) +
+#                  alpine (musl) + fedora (other glibc vintage). The ALPINE LEG
+#                  IS THE PROOF — drop it and the claim is merely asserted.
+#   linux/arm64  — upstream ships no aarch64 musl build (only the 32-bit
+#                  arm-unknown-linux-musleabihf), so the only candidate is the
+#                  gnu one, which carries PT_INTERP /lib/ld-linux-aarch64.so.1
+#                  and needs libgcc_s.so.1 → `+libc.glibc`. NO alpine leg: the
+#                  binary genuinely cannot load under musl, and the renderer
+#                  rejects an alpine leg on a glibc key with exit 65.
+platforms:
+  linux/amd64:
+    runner: ubuntu-latest
+    containers:
+      - { image: "ubuntu:24.04", shell: bash }
+      - { image: "alpine:3.20",  shell: sh }
+      - { image: "fedora:40",    shell: bash }
+  "linux/arm64+libc.glibc":
+    # arm64 container legs run natively — no qemu — so the runner arch must
+    # match the platform or the renderer reds the leg up front.
+    runner: ubuntu-24.04-arm
+    containers:
+      - { image: "ubuntu:24.04", shell: bash }
+      - { image: "fedora:40",    shell: bash }
+  darwin/amd64:
+    # Intel slice tested on the arm64 macos-14 runner via Rosetta 2 — GitHub's
+    # native macos-13 Intel pool is exhausted and deadlocks the push job.
+    runner: macos-14
+    prefix: ["arch", "-x86_64"]
+  darwin/arm64:
+    runner: macos-14
+    shell: bash
+  windows/amd64:
+    runner: windows-latest
+    shell: pwsh
+  # No `containers:` on darwin or windows — those runners have no Linux
+  # container engine, and the key is rejected at spec load.
+  #
+  # No `windows/arm64`: upstream ships x86_64-pc-windows-msvc and the 32-bit
+  # i686-pc-windows-msvc and nothing else. There is no aarch64 Windows asset.
+
+notify:
+  discord:
+    webhook_secret: OCX_MIRROR_DISCORD_HOOK
+    user_id: "227748867204972545"  # pinged in-message on failures

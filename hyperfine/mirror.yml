@@ -1,0 +1,127 @@
+extends: ../mirror-base.yml
+
+name: hyperfine
+
+# Logical index package `sharkdp/hyperfine` at the physical path
+# `ghcr.io/ocx-contrib/sharkdp/hyperfine` — slash segments, never
+# hyphen-flattened. The first segment must be this repo's own GitHub owner:
+# GITHUB_TOKEN only authorises packages owned by the repo the workflow runs in.
+#
+# The org is kept as the namespace (rather than the tool naming itself, as
+# mirror-yq does for the personal handle `mikefarah`) because sharkdp is a real
+# prospective family — bat and fd would join it here.
+#
+# Succeeds the flat `ocx.sh/hyperfine` coordinate this repository published
+# before the grouped layout.
+target:
+  registry: ghcr.io
+  repository: ocx-contrib/sharkdp/hyperfine
+
+source:
+  type: github_release
+  owner: sharkdp
+  repo: hyperfine
+  tag_pattern: "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+
+# ─── libc gate (Phase 3.5) — the evidence, not the conclusion ───────────────
+#
+# hyperfine is a cargo-dist Rust build and upstream's Linux matrix is
+# ASYMMETRIC PER ARCH. Measured on v1.20.0:
+#
+#   $ file hyperfine-v1.20.0-x86_64-unknown-linux-musl/hyperfine
+#   ELF 64-bit LSB pie executable, x86-64, static-pie linked, stripped
+#   $ readelf -l … | grep INTERP  → (none)
+#   $ readelf -d … | grep NEEDED  → (none)
+#
+#   $ file hyperfine-v1.20.0-aarch64-unknown-linux-gnu/hyperfine
+#   ELF 64-bit LSB pie executable, ARM aarch64, dynamically linked,
+#     interpreter /lib/ld-linux-aarch64.so.1, for GNU/Linux 3.7.0, stripped
+#   $ readelf -d … | grep NEEDED  → libgcc_s.so.1, libpthread.so.0,
+#                                   libdl.so.2, libc.so.6
+#
+# So the two keys differ, because `os.features` states what the artifact
+# REQUIRES OF THE HOST:
+#
+#   linux/amd64            — the musl asset needs nothing → BARE key. Picked
+#                            over x86_64-unknown-linux-gnu, which is dynamic
+#                            (PT_INTERP /lib64/ld-linux-x86-64.so.2, NEEDED
+#                            libgcc_s.so.1) and would only cover glibc hosts.
+#   linux/arm64+libc.glibc — NO aarch64 musl asset exists upstream. The only
+#                            aarch64 Linux build is the gnu one, and it is
+#                            dynamically glibc-linked, so arm64 cannot be made
+#                            bare. (`arm-unknown-linux-musleabihf` is 32-bit
+#                            armv7, not arm64 — absence confirmed, not assumed.)
+#
+# Container legs follow from what each key claims and live in
+# ../mirror-base.yml: ubuntu + alpine + fedora for the bare amd64 key (the
+# alpine leg IS the universality proof), ubuntu + fedora and NO alpine for the
+# glibc arm64 key.
+#
+# ─── Scope (verified against v1.19.0 and v1.20.0, the whole in-range set) ────
+#
+# Upstream also publishes, and this mirror deliberately does not carry:
+#   *-i686-{unknown-linux-gnu,unknown-linux-musl,pc-windows-msvc}  — 32-bit x86
+#   *-arm-unknown-linux-{gnueabihf,musleabihf}                     — 32-bit ARM
+#   *-x86_64-unknown-linux-gnu                — superseded by the static musl
+#   hyperfine{,-musl}_<ver>_*.deb                                  — installers
+#
+# The `-.*-` in each pattern spans only the version segment, and the anchored
+# triple keeps the 32-bit siblings out — `-x86_64-unknown-linux-musl\.tar\.gz$`
+# does not match the i686 or the armhf asset. Resolution verified BOTH ways on
+# every in-range release: each of the five patterns matches EXACTLY one asset.
+# A pattern matching zero is silently skipped, not an error — it would yield a
+# green run with a missing platform.
+assets:
+  linux/amd64:
+    - "^hyperfine-v.*-x86_64-unknown-linux-musl\\.tar\\.gz$"
+  "linux/arm64+libc.glibc":
+    - "^hyperfine-v.*-aarch64-unknown-linux-gnu\\.tar\\.gz$"
+  darwin/amd64:
+    - "^hyperfine-v.*-x86_64-apple-darwin\\.tar\\.gz$"
+  darwin/arm64:
+    - "^hyperfine-v.*-aarch64-apple-darwin\\.tar\\.gz$"
+  windows/amd64:
+    - "^hyperfine-v.*-x86_64-pc-windows-msvc\\.zip$"
+
+asset_type:
+  # Every asset — the four tarballs AND the Windows zip — wraps its payload in
+  # a single `hyperfine-v<ver>-<triple>/` directory, so one strip serves all
+  # five platforms and no per-platform override is needed. After the strip the
+  # executable sits at the content root beside README/LICENSE-*/hyperfine.1 and
+  # autocomplete/ — which is why PATH is a bare ${installPath} and `bin_scan`
+  # is `off` (see ../mirror-base.yml).
+  type: archive
+  strip_components: 1
+
+metadata:
+  default: metadata.json
+
+catalog:
+  logo: logo.svg
+
+versions:
+  min: "1.19.0"
+  new_per_run: 10
+  poll_interval: "0 */6 * * *"
+
+tests:
+  # `script:` resolves from the REPOSITORY ROOT — unlike `metadata.default` and
+  # `catalog.logo` above, which resolve against this spec's own directory.
+  - name: smoke
+    script: hyperfine/tests/smoke.star
+
+annotations:
+  # From the Phase 1.5 license gate. `gh api repos/sharkdp/hyperfine/license`
+  # reports only `Apache-2.0` — it picks one file and the repo root carries both
+  # LICENSE-APACHE and LICENSE-MIT. Cargo.toml is authoritative:
+  #   $ gh api repos/sharkdp/hyperfine/contents/Cargo.toml --jq .content \
+  #       | base64 -d | grep '^license'
+  #   license = "MIT OR Apache-2.0"
+  # Both files ship inside every release archive and are republished with it.
+  org.opencontainers.image.licenses: "MIT OR Apache-2.0"
+
+announce:
+  # Spelled out, not derived from target.repository — the logical name and the
+  # physical path are related by convention only.
+  package: sharkdp/hyperfine
+  fork: ocx-contrib/index

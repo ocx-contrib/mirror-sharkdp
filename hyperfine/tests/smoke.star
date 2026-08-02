@@ -1,4 +1,4 @@
-# tests/smoke.star — stable across upstream hyperfine releases.
+# hyperfine/tests/smoke.star — stable across upstream hyperfine releases.
 # Asserts the contract (exit code, version shape, file side effect, stable
 # JSON tokens), never help/version prose. See ocx.mirror testing-practices.md.
 
