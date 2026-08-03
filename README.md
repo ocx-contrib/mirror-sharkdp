@@ -6,27 +6,29 @@ package.
 
 | Package | Spec | Publishes to | Announced as | Upstream SPDX |
 |---|---|---|---|---|
-| [hyperfine](https://github.com/sharkdp/hyperfine) | [`hyperfine/mirror.yml`](hyperfine/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/hyperfine` | `ocx.sh/sharkdp/hyperfine` | `MIT OR Apache-2.0` |
+| [bat](https://github.com/sharkdp/bat) | [`bat/mirror.yml`](bat/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/bat` | [`ocx.sh/sharkdp/bat`](https://index.ocx.sh/sharkdp/bat) | `MIT OR Apache-2.0` |
+| [fd](https://github.com/sharkdp/fd) | [`fd/mirror.yml`](fd/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/fd` | [`ocx.sh/sharkdp/fd`](https://index.ocx.sh/sharkdp/fd) | `MIT OR Apache-2.0` |
+| [hyperfine](https://github.com/sharkdp/hyperfine) | [`hyperfine/mirror.yml`](hyperfine/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/hyperfine` | [`ocx.sh/sharkdp/hyperfine`](https://index.ocx.sh/sharkdp/hyperfine) | `MIT OR Apache-2.0` |
 
 Each upstream release is discovered, re-bundled, smoke-tested per
 `(version, platform)` and only then pushed with cascade tags, after which the
 result is announced into the OCX index.
 
-> This repository previously published the same upstream to the flat coordinate
+> This repository previously published hyperfine to the flat coordinate
 > `ocx.sh/hyperfine`, as `mirror-hyperfine`. `sharkdp/hyperfine` is the grouped
-> successor. The org is kept as the namespace because it is a real prospective
-> family — `bat` and `fd` would join it as sibling directories here.
+> successor. The org is kept as the namespace because it is a real family —
+> `bat` and `fd` joined it as sibling directories on 2026-08-04.
 
 ## Layout
 
 ```
 mirror-base.yml         repo-wide policy every spec inherits via `extends:`
-hyperfine/
-├── mirror.yml          the spec — never at the repo root
-├── metadata.json       bundle interface
-├── CATALOG.md          → ocx package describe
-├── logo.svg / logo.png describe assets, 512px PNG
-└── tests/smoke.star    Starlark smoke test
+bat/  fd/  hyperfine/   one directory per package, named exactly after it
+└── mirror.yml          the spec — never at the repo root
+    metadata.json       bundle interface
+    CATALOG.md          → ocx package describe
+    logo.svg / logo.png describe assets, 512px PNG
+    tests/smoke.star    Starlark smoke test
 ```
 
 `LICENSE` and `NOTICE.md` are shared at the root. Logos are **not** — each
@@ -42,50 +44,77 @@ not at all.
 
 ## Platforms
 
-`hyperfine` publishes five platform entries: both Linux arches, both macOS
-arches, and `windows/amd64`. There is no `windows/arm64` — upstream ships
-`x86_64-pc-windows-msvc` and the 32-bit `i686-pc-windows-msvc` and nothing else.
+The three packages do **not** share a platform set, and the differences are
+measured rather than assumed:
 
-**The Linux keys are asymmetric, and deliberately so.** `os.features` states
-what an artifact requires *of the host*, and upstream's Rust release matrix does
-not offer the same choice on both arches:
+| Package | Platforms | Notable |
+|---|---|---|
+| `bat` | 6 | both Linux, both macOS, both Windows. `windows/arm64` carries `min_version: 0.26.0` — that asset first appears in v0.26.0 |
+| `fd` | 5 | **no `darwin/amd64`** — upstream ships no Intel Mac asset at all |
+| `hyperfine` | 5 | **no `windows/arm64`** — upstream ships no aarch64 Windows asset |
 
-| Key | Asset | Measured | Container legs |
-|---|---|---|---|
-| `linux/amd64` | `x86_64-unknown-linux-musl` | static-pie, no `PT_INTERP`, no `DT_NEEDED` → requires nothing → **bare** | ubuntu + **alpine** + fedora |
-| `linux/arm64+libc.glibc` | `aarch64-unknown-linux-gnu` | `PT_INTERP /lib/ld-linux-aarch64.so.1`, `NEEDED libgcc_s.so.1` → **`+libc.glibc`** | ubuntu + fedora, **no alpine** |
+**The Linux keys differ per package too.** `os.features` states what an artifact
+requires *of the host*, so what decides the key is linkage, not the asset name:
 
-There is **no `aarch64-unknown-linux-musl` asset upstream** — the only other
-ARM Linux build is `arm-unknown-linux-musleabihf`, which is 32-bit armv7 — so
-arm64 cannot be made bare. The `alpine:3.20` leg on the amd64 key is what turns
-its universality claim into evidence; the arm64 key gets no alpine leg because
-the binary genuinely cannot load under musl and the renderer rejects the leg at
-spec load (exit 65). The measurements themselves are recorded above the
-`assets:` block in `hyperfine/mirror.yml`.
+| Package | `linux/amd64` | `linux/arm64` |
+|---|---|---|
+| `bat`, `fd` | **bare** — musl build is static | **bare** — musl build is static |
+| `hyperfine` | **bare** — musl build is static | **`+libc.glibc`** — no aarch64 musl asset exists |
+
+For all three, `x86_64-unknown-linux-musl` measures static-pie with no
+`PT_INTERP` and no `DT_NEEDED`, so it requires nothing of the host and takes a
+bare key. On arm64 the matrices diverge: bat and fd ship
+`aarch64-unknown-linux-musl` (statically linked, `INTERP` segment count 0), so
+their arm64 keys are bare as well; hyperfine ships no such asset — its only
+aarch64 Linux build is the gnu one, carrying `PT_INTERP
+/lib/ld-linux-aarch64.so.1` and `NEEDED libgcc_s.so.1` — so its arm64 key must
+be `+libc.glibc`.
+
+That is exactly why **`bat/mirror.yml` and `fd/mirror.yml` restate `platforms:`
+in full** instead of inheriting it: `mirror-base.yml`'s block encodes
+hyperfine's asymmetry, and `extends:` is a shallow merge. A new package here
+must measure its own arm64 asset before deciding whether to inherit.
+
+The `alpine:3.20` leg is what turns a bare key's universality claim into
+evidence — bat and fd carry it on **both** arches, hyperfine only on amd64. A
+`+libc.glibc` key gets no alpine leg: the binary genuinely cannot load under
+musl and the renderer rejects that leg at spec load (exit 65). The measurements
+themselves are recorded above the `assets:` block in each spec.
+
+The `-gnu` Linux builds exist for all three and are deliberately not carried:
+publishing them alongside a static build under `+libc.glibc` is legal and
+resolves correctly by specificity scoring, but it only buys something where
+musl's libc changes behaviour a user can reach — canonically DNS/NSS. None of
+these three opens a socket.
 
 ## The binaries claim
 
-sharkdp's release archives put the executable at the archive **root**, beside
-`README.md`, `LICENSE-*`, `hyperfine.1` and `autocomplete/`. After
-`strip_components: 1` the bundle's only PATH entry is therefore a bare
+sharkdp's release archives all share one layout — a single
+`<tool>-v<ver>-<triple>/` wrapper holding the executable at its **root**, beside
+`README.md`, `LICENSE-*`, `<tool>.1` and `autocomplete/`. This holds for the
+`.tar.gz` and the `.zip` alike, so one `strip_components: 1` serves every
+platform and no per-platform `asset_type` override is needed.
+
+After the strip the bundle's only PATH entry is therefore a bare
 `${installPath}` — the executable *is* the content root. `bin_scan` only looks
 *below* an `${installPath}/<dir>` entry, so `auto`/`verify` is rejected at spec
 load with exit 65 (`the verification would inspect no file and pass green
 whatever the archive contains`). `mirror-base.yml` therefore sets
-`bin_scan: off` and `hyperfine/metadata.json` hand-lists
-`binaries: ["hyperfine"]` — the blessed shape for this archive layout.
+`bin_scan: off` and each package's `metadata.json` hand-lists its single binary
+(`["bat"]`, `["fd"]`, `["hyperfine"]`) — the blessed shape for this layout.
 
 ## Editing
 
 | File | Edit | Regenerate after |
 |------|------|------------------|
-| `mirror-base.yml`, `hyperfine/mirror.yml` | hand | yes — see below |
-| `hyperfine/{metadata.json,CATALOG.md,logo.*}` | hand | — |
-| `hyperfine/tests/smoke.star` | hand | — |
+| `mirror-base.yml`, `<pkg>/mirror.yml` | hand | yes — see below |
+| `<pkg>/{metadata.json,CATALOG.md,logo.*}` | hand | — |
+| `<pkg>/tests/smoke.star` | hand | — |
 | `.github/workflows/*.yml` | **generated — never hand-edit** | re-run when a spec changes |
 
 ```bash
-ocx-mirror package pipeline generate ci --spec hyperfine/mirror.yml
+ocx-mirror package pipeline generate ci \
+  --spec bat/mirror.yml --spec fd/mirror.yml --spec hyperfine/mirror.yml
 ```
 
 **Name every spec.** `--spec` *appends* rather than replaces, so a command
