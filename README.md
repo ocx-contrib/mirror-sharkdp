@@ -8,6 +8,7 @@ package.
 |---|---|---|---|---|
 | [bat](https://github.com/sharkdp/bat) | [`bat/mirror.yml`](bat/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/bat` | [`ocx.sh/sharkdp/bat`](https://index.ocx.sh/sharkdp/bat) | `MIT OR Apache-2.0` |
 | [fd](https://github.com/sharkdp/fd) | [`fd/mirror.yml`](fd/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/fd` | [`ocx.sh/sharkdp/fd`](https://index.ocx.sh/sharkdp/fd) | `MIT OR Apache-2.0` |
+| [hexyl](https://github.com/sharkdp/hexyl) | [`hexyl/mirror.yml`](hexyl/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/hexyl` | [`ocx.sh/sharkdp/hexyl`](https://index.ocx.sh/sharkdp/hexyl) | `MIT OR Apache-2.0` |
 | [hyperfine](https://github.com/sharkdp/hyperfine) | [`hyperfine/mirror.yml`](hyperfine/mirror.yml) | `ghcr.io/ocx-contrib/sharkdp/hyperfine` | [`ocx.sh/sharkdp/hyperfine`](https://index.ocx.sh/sharkdp/hyperfine) | `MIT OR Apache-2.0` |
 
 Each upstream release is discovered, re-bundled, smoke-tested per
@@ -23,7 +24,8 @@ result is announced into the OCX index.
 
 ```
 mirror-base.yml         repo-wide policy every spec inherits via `extends:`
-bat/  fd/  hyperfine/   one directory per package, named exactly after it
+bat/ fd/ hexyl/ hyperfine/
+                        one directory per package, named exactly after it
 └── mirror.yml          the spec — never at the repo root
     metadata.json       bundle interface
     CATALOG.md          → ocx package describe
@@ -44,13 +46,14 @@ not at all.
 
 ## Platforms
 
-The three packages do **not** share a platform set, and the differences are
-measured rather than assumed:
+The packages do **not** share a platform set, and the differences are measured
+rather than assumed:
 
 | Package | Platforms | Notable |
 |---|---|---|
 | `bat` | 6 | both Linux, both macOS, both Windows. `windows/arm64` carries `min_version: 0.26.0` — that asset first appears in v0.26.0 |
 | `fd` | 5 | **no `darwin/amd64`** — upstream ships no Intel Mac asset at all |
+| `hexyl` | 5 | **no `windows/arm64`**. `darwin/arm64` carries `min_version: 0.16.0` — Apple Silicon first appears in v0.16.0 |
 | `hyperfine` | 5 | **no `windows/arm64`** — upstream ships no aarch64 Windows asset |
 
 **The Linux keys differ per package too.** `os.features` states what an artifact
@@ -59,41 +62,44 @@ requires *of the host*, so what decides the key is linkage, not the asset name:
 | Package | `linux/amd64` | `linux/arm64` |
 |---|---|---|
 | `bat`, `fd` | **bare** — musl build is static | **bare** — musl build is static |
-| `hyperfine` | **bare** — musl build is static | **`+libc.glibc`** — no aarch64 musl asset exists |
+| `hexyl`, `hyperfine` | **bare** — musl build is static | **`+libc.glibc`** — no aarch64 musl asset exists |
 
-For all three, `x86_64-unknown-linux-musl` measures static-pie with no
+For every package here, `x86_64-unknown-linux-musl` measures static-pie with no
 `PT_INTERP` and no `DT_NEEDED`, so it requires nothing of the host and takes a
 bare key. On arm64 the matrices diverge: bat and fd ship
 `aarch64-unknown-linux-musl` (statically linked, `INTERP` segment count 0), so
-their arm64 keys are bare as well; hyperfine ships no such asset — its only
-aarch64 Linux build is the gnu one, carrying `PT_INTERP
-/lib/ld-linux-aarch64.so.1` and `NEEDED libgcc_s.so.1` — so its arm64 key must
+their arm64 keys are bare as well; hexyl and hyperfine ship no such asset —
+their only aarch64 Linux build is the gnu one, carrying `PT_INTERP
+/lib/ld-linux-aarch64.so.1` and `NEEDED libgcc_s.so.1` — so their arm64 key must
 be `+libc.glibc`.
 
-That is exactly why **`bat/mirror.yml` and `fd/mirror.yml` restate `platforms:`
-in full** instead of inheriting it: `mirror-base.yml`'s block encodes
-hyperfine's asymmetry, and `extends:` is a shallow merge. A new package here
-must measure its own arm64 asset before deciding whether to inherit.
+That is exactly why **every spec here restates `platforms:` in full** instead of
+inheriting it: `mirror-base.yml`'s block encodes hyperfine's asymmetry, and
+`extends:` is a shallow merge. A new package must measure its own arm64 asset
+before deciding whether to inherit — and even one whose libc facts match the
+base exactly (hexyl) has to restate the whole block to add a single
+per-platform `min_version`, because there is no per-key merge.
 
 The `alpine:3.20` leg is what turns a bare key's universality claim into
-evidence — bat and fd carry it on **both** arches, hyperfine only on amd64. A
-`+libc.glibc` key gets no alpine leg: the binary genuinely cannot load under
-musl and the renderer rejects that leg at spec load (exit 65). The measurements
-themselves are recorded above the `assets:` block in each spec.
+evidence — bat and fd carry it on **both** arches, hexyl and hyperfine only on
+amd64. A `+libc.glibc` key gets no alpine leg: the binary genuinely cannot load
+under musl and the renderer rejects that leg at spec load (exit 65). The
+measurements themselves are recorded above the `assets:` block in each spec.
 
-The `-gnu` Linux builds exist for all three and are deliberately not carried:
-publishing them alongside a static build under `+libc.glibc` is legal and
-resolves correctly by specificity scoring, but it only buys something where
+The `-gnu` Linux builds exist for every package here and are deliberately not
+carried: publishing them alongside a static build under `+libc.glibc` is legal
+and resolves correctly by specificity scoring, but it only buys something where
 musl's libc changes behaviour a user can reach — canonically DNS/NSS. None of
-these three opens a socket.
+these tools opens a socket.
 
 ## The binaries claim
 
 sharkdp's release archives all share one layout — a single
 `<tool>-v<ver>-<triple>/` wrapper holding the executable at its **root**, beside
-`README.md`, `LICENSE-*`, `<tool>.1` and `autocomplete/`. This holds for the
-`.tar.gz` and the `.zip` alike, so one `strip_components: 1` serves every
-platform and no per-platform `asset_type` override is needed.
+`README.md`, `LICENSE-*`, `<tool>.1` and — for all but hexyl, which generates
+completions on demand instead — `autocomplete/`. This holds for the `.tar.gz`
+and the `.zip` alike, so one `strip_components: 1` serves every platform and no
+per-platform `asset_type` override is needed.
 
 After the strip the bundle's only PATH entry is therefore a bare
 `${installPath}` — the executable *is* the content root. `bin_scan` only looks
@@ -101,7 +107,8 @@ After the strip the bundle's only PATH entry is therefore a bare
 load with exit 65 (`the verification would inspect no file and pass green
 whatever the archive contains`). `mirror-base.yml` therefore sets
 `bin_scan: off` and each package's `metadata.json` hand-lists its single binary
-(`["bat"]`, `["fd"]`, `["hyperfine"]`) — the blessed shape for this layout.
+(`["bat"]`, `["fd"]`, `["hexyl"]`, `["hyperfine"]`) — the blessed shape for this
+layout.
 
 ## Editing
 
@@ -114,7 +121,8 @@ whatever the archive contains`). `mirror-base.yml` therefore sets
 
 ```bash
 ocx-mirror package pipeline generate ci \
-  --spec bat/mirror.yml --spec fd/mirror.yml --spec hyperfine/mirror.yml
+  --spec bat/mirror.yml --spec fd/mirror.yml --spec hexyl/mirror.yml \
+  --spec hyperfine/mirror.yml
 ```
 
 **Name every spec.** `--spec` *appends* rather than replaces, so a command
