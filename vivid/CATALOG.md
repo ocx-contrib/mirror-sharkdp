@@ -1,0 +1,26 @@
+---
+title: vivid
+description: A themeable LS_COLORS generator that turns a filetype database and 30+ built-in color themes into the environment variable ls, eza and friends read
+keywords: vivid,ls-colors,ls_colors,theme,terminal,colors,cli,rust
+---
+
+# vivid
+
+vivid is a generator and manager for `LS_COLORS`, the environment variable that
+tells `ls`, `eza`, `tree` and other tools how to color filenames. Instead of
+hand-writing the opaque colon-separated expression, vivid builds it from a
+filetype database plus a named color theme, so a shell profile only has to do
+`export LS_COLORS="$(vivid generate <theme>)"`. Over thirty themes ship built
+in — molokai, nord, dracula, gruvbox, catppuccin, solarized, tokyonight and
+more — and output can be emitted as 24-bit truecolor or downsampled to 8-bit
+for terminals that need it. `vivid preview` renders a theme against a sample
+tree, and `--database` swaps in a custom `filetypes.yml`.
+
+## What's included
+
+- **vivid** — the CLI, with its entire theme set and filetype database compiled
+  into the executable; no separate config tree is installed or needed.
+
+## Links
+
+- [vivid on GitHub](https://github.com/sharkdp/vivid)

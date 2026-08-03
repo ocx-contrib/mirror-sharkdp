@@ -16,6 +16,7 @@ and no endorsement is implied.
 | `fd` | `ghcr.io/ocx-contrib/sharkdp/fd` | `MIT OR Apache-2.0` |
 | `hexyl` | `ghcr.io/ocx-contrib/sharkdp/hexyl` | `MIT OR Apache-2.0` |
 | `hyperfine` | `ghcr.io/ocx-contrib/sharkdp/hyperfine` | `MIT OR Apache-2.0` |
+| `vivid` | `ghcr.io/ocx-contrib/sharkdp/vivid` | `MIT OR Apache-2.0` |
 
 ---
 
@@ -135,6 +136,38 @@ permissive licenses, enumerated in upstream's `Cargo.lock`.
 The hyperfine name is used for catalog identification under nominative fair use.
 The logo shipped with this package is an OCX-authored lettermark, not an
 official hyperfine mark.
+
+---
+
+## `vivid`
+
+Upstream: <https://github.com/sharkdp/vivid>
+Published to `ghcr.io/ocx-contrib/sharkdp/vivid`.
+
+| Component | SPDX | Holder |
+|---|---|---|
+| vivid (`vivid`) | **MIT OR Apache-2.0** | Copyright (c) 2018 David Peter |
+
+Permissive dual license — the recipient may take either arm. Redistribution of
+the compiled binary is granted provided the copyright and permission notices are
+retained, and they are: every release archive ships `LICENSE-APACHE` and
+`LICENSE-MIT` beside the executable, and both are republished inside the OCX
+bundle. The canonical texts are
+<https://github.com/sharkdp/vivid/blob/master/LICENSE-MIT> and
+<https://github.com/sharkdp/vivid/blob/master/LICENSE-APACHE>; the SPDX
+expression is taken from upstream's `Cargo.toml`, which uses Cargo's deprecated
+slash spelling (`license = "MIT/Apache-2.0"`) of the same dual grant, rather
+than from the GitHub license API, which reports only one of the two files. The
+published binaries statically link third-party Rust crates under permissive
+licenses, enumerated in upstream's `Cargo.lock`. They additionally embed
+upstream's own theme set (`themes/`) and filetype database (`config/`), which
+are part of the same repository and carry the same dual license; those assets
+are compiled into the executable and are not separately extractable from the
+release archive.
+
+The vivid name is used for catalog identification under nominative fair use. The
+logo shipped with this package is an OCX-authored mark; upstream publishes no
+logo of its own.
 
 No modifications are made to any upstream artifact in this repository; they are
 republished byte-for-byte inside an OCX bundle.
