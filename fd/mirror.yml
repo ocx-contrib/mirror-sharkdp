@@ -97,11 +97,10 @@ assets:
   # arm64 ONLY; there is no Intel Mac asset (see above).
   darwin/arm64:
     - "^fd-v.*-aarch64-apple-darwin\\.tar\\.gz$"
-  # Pass 3 — windows.
-  # windows/amd64:
-  #   - "^fd-v.*-x86_64-pc-windows-msvc\\.zip$"
-  # windows/arm64:
-  #   - "^fd-v.*-aarch64-pc-windows-msvc\\.zip$"
+  windows/amd64:
+    - "^fd-v.*-x86_64-pc-windows-msvc\\.zip$"
+  windows/arm64:
+    - "^fd-v.*-aarch64-pc-windows-msvc\\.zip$"
 
 # ../mirror-base.yml sets `build_timestamp: none`, and that is a HYPERFINE
 # legacy: `ocx.sh/hyperfine` had already published every in-range version at the
