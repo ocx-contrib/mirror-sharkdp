@@ -111,14 +111,11 @@ assets:
     - "^vivid-v.*-x86_64-unknown-linux-musl\\.tar\\.gz$"
   "linux/arm64+libc.glibc":
     - "^vivid-v.*-aarch64-unknown-linux-gnu\\.tar\\.gz$"
-  # Pass 2 — darwin. Uncomment these AND the matching `platforms:` entries
-  # together: an unmatched platform self-skips per version but still boots its
-  # macos-14 runner and greens having tested nothing, so the platform key is
-  # staged too.
-  # darwin/amd64:
-  #   - "^vivid-v.*-x86_64-apple-darwin\\.tar\\.gz$"
-  # darwin/arm64:
-  #   - "^vivid-v.*-aarch64-apple-darwin\\.tar\\.gz$"
+  darwin/amd64:
+    - "^vivid-v.*-x86_64-apple-darwin\\.tar\\.gz$"
+  # v0.11.1 and later only — see this platform's `min_version` in `platforms:`.
+  darwin/arm64:
+    - "^vivid-v.*-aarch64-apple-darwin\\.tar\\.gz$"
   # Pass 3 — windows.
   # windows/amd64:
   #   - "^vivid-v.*-x86_64-pc-windows-msvc\\.zip$"
@@ -214,24 +211,23 @@ platforms:
       - { image: "ubuntu:24.04", shell: bash }
       - { image: "fedora:40",    shell: bash }
     exclude: *exclude_stale_0_11_0
-  # Pass 2 — darwin. Uncomment together with the matching `assets:` keys.
-  # darwin/amd64:
-  #   # Intel slice tested on the arm64 macos-14 runner via Rosetta 2 — GitHub's
-  #   # native macos-13 Intel pool is exhausted and deadlocks the push job.
-  #   runner: macos-14
-  #   prefix: ["arch", "-x86_64"]
-  #   exclude: *exclude_stale_0_11_0
-  # darwin/arm64:
-  #   runner: macos-14
-  #   shell: bash
-  #   # `aarch64-apple-darwin.tar.gz` first appears in the v0.11.0 RELEASE —
-  #   # where, per the stale-build note above, it is misnamed
-  #   # `vivid-v0.10.1-aarch64-apple-darwin.tar.gz`. v0.10.1's own release has
-  #   # no Apple Silicon asset at all, so without this floor the pattern would
-  #   # match zero there and be silently skipped. Combined with the exclude
-  #   # below, this platform's effective first version is 0.11.1.
-  #   min_version: "0.11.0"
-  #   exclude: *exclude_stale_0_11_0
+  darwin/amd64:
+    # Intel slice tested on the arm64 macos-14 runner via Rosetta 2 — GitHub's
+    # native macos-13 Intel pool is exhausted and deadlocks the push job.
+    runner: macos-14
+    prefix: ["arch", "-x86_64"]
+    exclude: *exclude_stale_0_11_0
+  darwin/arm64:
+    runner: macos-14
+    shell: bash
+    # `aarch64-apple-darwin.tar.gz` first appears in the v0.11.0 RELEASE —
+    # where, per the stale-build note above, it is misnamed
+    # `vivid-v0.10.1-aarch64-apple-darwin.tar.gz`. v0.10.1's own release has
+    # no Apple Silicon asset at all, so without this floor the pattern would
+    # match zero there and be silently skipped. Combined with the exclude
+    # below, this platform's effective first version is 0.11.1.
+    min_version: "0.11.0"
+    exclude: *exclude_stale_0_11_0
   # Pass 3 — windows.
   # windows/amd64:
   #   runner: windows-latest
