@@ -94,9 +94,9 @@ assets:
     - "^fd-v.*-x86_64-unknown-linux-musl\\.tar\\.gz$"
   linux/arm64:
     - "^fd-v.*-aarch64-unknown-linux-musl\\.tar\\.gz$"
-  # Pass 2 — darwin. arm64 ONLY; there is no Intel Mac asset (see above).
-  # darwin/arm64:
-  #   - "^fd-v.*-aarch64-apple-darwin\\.tar\\.gz$"
+  # arm64 ONLY; there is no Intel Mac asset (see above).
+  darwin/arm64:
+    - "^fd-v.*-aarch64-apple-darwin\\.tar\\.gz$"
   # Pass 3 — windows.
   # windows/amd64:
   #   - "^fd-v.*-x86_64-pc-windows-msvc\\.zip$"
