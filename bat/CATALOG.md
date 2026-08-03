@@ -1,0 +1,25 @@
+---
+title: bat
+description: A cat clone with syntax highlighting for 150+ languages, Git integration, automatic paging, and themeable output
+keywords: bat,cat,pager,syntax-highlighting,git,cli,rust
+---
+
+# bat
+
+bat is a drop-in replacement for `cat` that adds syntax highlighting for over
+150 languages, Git integration that marks added, modified, and removed lines in
+the gutter, and automatic paging for output that does not fit the terminal. It
+shows non-printable characters on request, concatenates multiple files with
+headers, and can be used as a colorizing pager for other tools — `man`, `git
+diff`, `--help` output — via its `--language` and `--plain` modes. Syntax
+definitions and themes are embedded in the executable, so highlighting works
+with no external assets.
+
+## What's included
+
+- **bat** — the pager CLI, with bundled shell-completion scripts for bash, zsh,
+  fish and PowerShell, and the `bat.1` man page.
+
+## Links
+
+- [bat on GitHub](https://github.com/sharkdp/bat)

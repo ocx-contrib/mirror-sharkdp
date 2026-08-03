@@ -1,0 +1,211 @@
+extends: ../mirror-base.yml
+
+name: bat
+
+# Logical index package `sharkdp/bat` at the physical path
+# `ghcr.io/ocx-contrib/sharkdp/bat` — slash segments, never hyphen-flattened.
+# The first segment must be this repo's own GitHub owner: GITHUB_TOKEN only
+# authorises packages owned by the repo the workflow runs in.
+target:
+  registry: ghcr.io
+  repository: ocx-contrib/sharkdp/bat
+
+source:
+  type: github_release
+  owner: sharkdp
+  repo: bat
+  tag_pattern: "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+
+# ─── libc gate (Phase 3.5) — the evidence, not the conclusion ───────────────
+#
+# bat is a cargo-dist Rust build. Unlike hyperfine (the first package in this
+# repo), upstream ships a musl build for BOTH 64-bit arches, and BOTH are
+# fully static. Measured on v0.26.1 and re-checked on v0.25.0, the oldest
+# in-range release:
+#
+#   $ file bat-v0.26.1-x86_64-unknown-linux-musl/bat
+#   ELF 64-bit LSB pie executable, x86-64, static-pie linked, stripped
+#   $ readelf -l … | grep -c INTERP   → 0
+#   $ readelf -d … | grep NEEDED      → (none)
+#
+#   $ file bat-v0.26.1-aarch64-unknown-linux-musl/bat
+#   ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped
+#   $ readelf -l … | grep -c INTERP   → 0
+#   $ readelf -d … | grep NEEDED      → (none)
+#
+#   $ file bat-v0.25.0-x86_64-unknown-linux-musl/bat
+#   ELF 64-bit LSB pie executable, x86-64, static-pie linked, stripped
+#   $ file bat-v0.25.0-aarch64-unknown-linux-musl/bat
+#   ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped
+#
+# Neither artifact carries a PT_INTERP segment or a single DT_NEEDED entry, so
+# neither requires anything of the host userland. `os.features` states what the
+# artifact REQUIRES, so both Linux keys are BARE — tagging a static build
+# `+libc.musl` would be a false requirement that hides it from every glibc host.
+#
+# ⚠️ THIS IS WHY `platforms:` IS RESTATED IN FULL BELOW. ../mirror-base.yml
+# encodes hyperfine's matrix, where aarch64 has no musl build and therefore
+# carries `linux/arm64+libc.glibc` with no alpine leg. bat's aarch64 IS static,
+# so it takes a bare key and MUST get the alpine leg — and `extends:` is a
+# SHALLOW top-level merge, so a partial restatement would silently drop every
+# container leg in the repo-wide block.
+#
+# The gnu builds are deliberately NOT carried. Both exist and both are
+# dynamically linked —
+#   $ file bat-v0.26.1-x86_64-unknown-linux-gnu/bat
+#   … dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2 …
+#   $ readelf -d … | grep NEEDED
+#   libgcc_s.so.1 librt.so.1 libpthread.so.0 libm.so.6 libdl.so.2 libc.so.6
+# — so publishing them alongside the static builds under `+libc.glibc` is
+# legal and would resolve correctly by specificity scoring. It buys nothing
+# here: the documented reason to carry a second glibc key is behaviour a user
+# can reach that musl's libc changes, and the canonical case is DNS/NSS. bat
+# is a pure local-file pager — it opens no sockets and resolves no names — so
+# the second key would be extra artifacts with no reachable difference.
+#
+# ─── Scope (verified BOTH ways on v0.25.0, v0.26.0 and v0.26.1 — the whole
+#     in-range set) ────────────────────────────────────────────────────────────
+#
+# Each pattern below was grepped against the FULL 21-asset list of every
+# in-range release. Every one matched EXACTLY ONE asset, except `windows/arm64`
+# on v0.25.0, which matched zero — handled by a per-platform `min_version`
+# rather than a global floor bump (see `platforms:`). A pattern matching zero is
+# SILENTLY SKIPPED, not an error, so this check is the only thing standing
+# between a typo and a green run with a missing platform.
+#
+# Upstream also publishes, and this mirror deliberately does not carry:
+#   *-{x86_64,aarch64}-unknown-linux-gnu    — superseded by the static musl builds
+#   *-i686-{unknown-linux-{gnu,musl},pc-windows-msvc}   — 32-bit x86
+#   *-arm-unknown-linux-{gnueabihf,musleabihf}          — 32-bit ARM
+#   bat{,-musl}_<ver>_*.deb                             — installers
+#
+# ⚠️ v0.25.0 ALSO shipped `bat-v0.25.0-x86_64-pc-windows-gnu.zip`, which v0.26.x
+# dropped. The anchored `-msvc\.zip$` pattern excludes it on the one release
+# where it exists; a looser `-x86_64-pc-windows.*\.zip$` would have matched TWO
+# assets there and failed the whole version with an ambiguity error.
+assets:
+  linux/amd64:
+    - "^bat-v.*-x86_64-unknown-linux-musl\\.tar\\.gz$"
+  linux/arm64:
+    - "^bat-v.*-aarch64-unknown-linux-musl\\.tar\\.gz$"
+  # Pass 2 — darwin. Uncomment together with nothing else; `platforms:` already
+  # declares both, and a platform with no matching `assets:` key never enters a
+  # version's resolved set, so its legs self-skip until this lands.
+  # darwin/amd64:
+  #   - "^bat-v.*-x86_64-apple-darwin\\.tar\\.gz$"
+  # darwin/arm64:
+  #   - "^bat-v.*-aarch64-apple-darwin\\.tar\\.gz$"
+  # Pass 3 — windows.
+  # windows/amd64:
+  #   - "^bat-v.*-x86_64-pc-windows-msvc\\.zip$"
+  # windows/arm64:
+  #   - "^bat-v.*-aarch64-pc-windows-msvc\\.zip$"
+
+# ../mirror-base.yml sets `build_timestamp: none`, and that is a HYPERFINE
+# legacy: `ocx.sh/hyperfine` had already published every in-range version at the
+# bare tag before the grouped layout, so switching it to `date` would re-tag all
+# of them for no gain. bat has no published history, so none of that applies and
+# the fleet rule stands — a cascade tag re-points on every re-publish, and
+# without a build segment the new manifest reuses the bare version tag and
+# orphans the prior digest for registry GC, breaking any `@sha256:` pin in a
+# consumer's `ocx.lock`. Overriding to `date` here silences the validate warning
+# that `none` legitimately raises. (Safe as a plain scalar: the shallow-merge
+# hazard only bites block-valued keys like `platforms:`.) The documented
+# exception — a version that already carries semver build metadata, where `date`
+# empties the mirror — does not apply: bat's versions are plain `0.26.1`.
+build_timestamp: date
+
+asset_type:
+  # Every asset — the four tarballs AND both Windows zips — wraps its payload in
+  # a single `bat-v<ver>-<triple>/` directory, so one strip serves all six
+  # platforms and no per-platform override is needed. Verified by `tar tzf` /
+  # `unzip -l` on linux, darwin and windows samples. After the strip the
+  # executable sits at the content root beside CHANGELOG.md, LICENSE-APACHE,
+  # LICENSE-MIT, README.md, bat.1 and autocomplete/ — which is why PATH is a
+  # bare ${installPath} and `bin_scan` is `off` (see ../mirror-base.yml).
+  type: archive
+  strip_components: 1
+
+metadata:
+  default: metadata.json
+
+catalog:
+  logo: logo.svg
+
+versions:
+  min: "0.25.0"
+  new_per_run: 10
+  poll_interval: "2 */6 * * *"
+
+tests:
+  # `script:` resolves from the REPOSITORY ROOT — unlike `metadata.default` and
+  # `catalog.logo` above, which resolve against this spec's own directory.
+  - name: smoke
+    script: bat/tests/smoke.star
+
+# ─── Platform matrix — RESTATED IN FULL, not merged ─────────────────────────
+#
+# `extends:` is a SHALLOW merge of top-level keys: setting `platforms:` here
+# replaces ../mirror-base.yml's block OUTRIGHT. It is restated in full and
+# deliberately, because bat's measured libc facts differ from the base's
+# (hyperfine's) in one decisive way — bat's aarch64 musl build exists and is
+# static, so `linux/arm64` is a BARE key with an ALPINE LEG, where the base
+# carries `linux/arm64+libc.glibc` and no alpine.
+#
+# The alpine leg IS the proof. A bare key claims the artifact runs under ANY
+# Linux userland; ubuntu (glibc) + fedora (a different glibc vintage) + alpine
+# (musl) is what turns that claim into evidence. Drop alpine and the claim is
+# merely asserted.
+platforms:
+  linux/amd64:
+    runner: ubuntu-latest
+    containers:
+      - { image: "ubuntu:24.04", shell: bash }
+      - { image: "alpine:3.20",  shell: sh }
+      - { image: "fedora:40",    shell: bash }
+  linux/arm64:
+    # arm64 container legs run natively — no qemu — so the runner arch must
+    # match the platform or the renderer reds the leg up front.
+    runner: ubuntu-24.04-arm
+    containers:
+      - { image: "ubuntu:24.04", shell: bash }
+      - { image: "alpine:3.20",  shell: sh }
+      - { image: "fedora:40",    shell: bash }
+  darwin/amd64:
+    # Intel slice tested on the arm64 macos-14 runner via Rosetta 2 — GitHub's
+    # native macos-13 Intel pool is exhausted and deadlocks the push job.
+    runner: macos-14
+    prefix: ["arch", "-x86_64"]
+  darwin/arm64:
+    runner: macos-14
+    shell: bash
+  windows/amd64:
+    runner: windows-latest
+    shell: pwsh
+  windows/arm64:
+    runner: windows-11-arm
+    shell: pwsh
+    # `aarch64-pc-windows-msvc.zip` is a NEW asset as of v0.26.0 — absent from
+    # v0.25.0, where this platform's pattern matches zero assets. The canonical
+    # fix for a late-added platform is a per-platform floor, NOT a global
+    # `versions.min` bump: an out-of-window (version, platform) is never
+    # resolved, built, tested or pushed, and never reds the run.
+    min_version: "0.26.0"
+  # No `containers:` on darwin or windows — those runners have no Linux
+  # container engine, and the key is rejected at spec load.
+
+annotations:
+  # From the Phase 1.5 license gate. `gh api repos/sharkdp/bat/license` reports
+  # only `Apache-2.0` — it picks one file and the repo root carries both
+  # LICENSE-APACHE and LICENSE-MIT. Cargo.toml is authoritative:
+  #   $ gh api repos/sharkdp/bat/contents/Cargo.toml --jq .content \
+  #       | base64 -d | grep '^license'
+  #   license = "MIT OR Apache-2.0"
+  # Both files ship inside every release archive and are republished with it.
+  org.opencontainers.image.licenses: "MIT OR Apache-2.0"
+
+announce:
+  # Spelled out, not derived from target.repository — the logical name and the
+  # physical path are related by convention only.
+  package: sharkdp/bat
+  fork: ocx-contrib/index
