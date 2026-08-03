@@ -88,13 +88,10 @@ assets:
     - "^bat-v.*-x86_64-unknown-linux-musl\\.tar\\.gz$"
   linux/arm64:
     - "^bat-v.*-aarch64-unknown-linux-musl\\.tar\\.gz$"
-  # Pass 2 — darwin. Uncomment together with nothing else; `platforms:` already
-  # declares both, and a platform with no matching `assets:` key never enters a
-  # version's resolved set, so its legs self-skip until this lands.
-  # darwin/amd64:
-  #   - "^bat-v.*-x86_64-apple-darwin\\.tar\\.gz$"
-  # darwin/arm64:
-  #   - "^bat-v.*-aarch64-apple-darwin\\.tar\\.gz$"
+  darwin/amd64:
+    - "^bat-v.*-x86_64-apple-darwin\\.tar\\.gz$"
+  darwin/arm64:
+    - "^bat-v.*-aarch64-apple-darwin\\.tar\\.gz$"
   # Pass 3 — windows.
   # windows/amd64:
   #   - "^bat-v.*-x86_64-pc-windows-msvc\\.zip$"
