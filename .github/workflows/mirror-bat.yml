@@ -6,7 +6,7 @@ name: bat
 
 on:
   schedule:
-    - cron: '2 */6 * * *'
+    - cron: '15 5-23/6 * * *'
   workflow_dispatch:
   push:
     branches: [main]

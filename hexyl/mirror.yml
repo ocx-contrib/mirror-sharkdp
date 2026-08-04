@@ -138,7 +138,7 @@ catalog:
 versions:
   min: "0.15.0"
   new_per_run: 10
-  poll_interval: "4 */6 * * *"
+  poll_interval: "57 1-23/6 * * *"
 
 tests:
   # `script:` resolves from the REPOSITORY ROOT — unlike `metadata.default` and

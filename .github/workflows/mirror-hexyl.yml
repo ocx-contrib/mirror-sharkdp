@@ -6,7 +6,7 @@ name: hexyl
 
 on:
   schedule:
-    - cron: '4 */6 * * *'
+    - cron: '57 1-23/6 * * *'
   workflow_dispatch:
   push:
     branches: [main]

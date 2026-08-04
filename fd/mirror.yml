@@ -142,7 +142,7 @@ versions:
   # and nothing to mirror at that version by any route.
   min: "10.4.1"
   new_per_run: 10
-  poll_interval: "3 */6 * * *"
+  poll_interval: "38 0-23/6 * * *"
 
 tests:
   # `script:` resolves from the REPOSITORY ROOT — unlike `metadata.default` and
