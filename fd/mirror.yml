@@ -179,7 +179,7 @@ platforms:
       - { image: "alpine:3.20",  shell: sh }
       - { image: "fedora:40",    shell: bash }
   darwin/arm64:
-    runner: macos-14
+    runner: macos-15
     shell: bash
   windows/amd64:
     runner: windows-latest

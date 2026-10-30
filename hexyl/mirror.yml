@@ -178,12 +178,12 @@ platforms:
       - { image: "ubuntu:24.04", shell: bash }
       - { image: "fedora:40",    shell: bash }
   darwin/amd64:
-    # Intel slice tested on the arm64 macos-14 runner via Rosetta 2 — GitHub's
+    # Intel slice tested on the arm64 macos-15 runner via Rosetta 2 — GitHub's
     # native macos-13 Intel pool is exhausted and deadlocks the push job.
-    runner: macos-14
+    runner: macos-15
     prefix: ["arch", "-x86_64"]
   darwin/arm64:
-    runner: macos-14
+    runner: macos-15
     shell: bash
     # `aarch64-apple-darwin.tar.gz` is a NEW asset as of v0.16.0 — absent from
     # v0.15.0, where this platform's pattern matches zero assets. (Measured

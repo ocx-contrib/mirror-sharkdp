@@ -211,13 +211,13 @@ platforms:
       - { image: "fedora:40",    shell: bash }
     exclude: *exclude_stale_0_11_0
   darwin/amd64:
-    # Intel slice tested on the arm64 macos-14 runner via Rosetta 2 — GitHub's
+    # Intel slice tested on the arm64 macos-15 runner via Rosetta 2 — GitHub's
     # native macos-13 Intel pool is exhausted and deadlocks the push job.
-    runner: macos-14
+    runner: macos-15
     prefix: ["arch", "-x86_64"]
     exclude: *exclude_stale_0_11_0
   darwin/arm64:
-    runner: macos-14
+    runner: macos-15
     shell: bash
     # `aarch64-apple-darwin.tar.gz` first appears in the v0.11.0 RELEASE —
     # where, per the stale-build note above, it is misnamed
